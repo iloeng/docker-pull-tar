@@ -562,7 +562,8 @@ with gr.Blocks(
         with gr.Column(scale=4):
             gr.Markdown("### 🔍 步骤 1：全网查镜像")
             with gr.Row():
-                kw_ui = gr.Textbox(label="输入镜像关键词", placeholder="eg: nginx, redis, pytorch", show_label=False)
+                kw_ui = gr.Textbox(label="输入镜像关键词", placeholder="eg: nginx, redis, pytorch", show_label=False,
+                                   info="也可直接输入 username/repo:tag 定位镜像")
                 search_btn = gr.Button("🔍 搜 索", variant="primary")
 
             df_results = gr.Dataframe(
@@ -614,14 +615,23 @@ with gr.Blocks(
 
     # 🌟 修改：绑定首次搜索事件（重置为第1页），同步更新并保存 State 记录
     def on_initial_search(kw, p_mode, p_host, p_user, p_pass, vSSL):
-        res, actual_page, html_info, can_prev, can_next = execute_search(kw, 1, p_mode, p_host, p_user, p_pass, vSSL)
-        return kw, res, actual_page, html_info, can_prev, can_next
+        value = (kw or "").strip()
+        if "/" in value:
+            repo, _, direct_tag = value.partition(":")
+            tag_update = fn_get_tags(repo, p_mode, p_host, p_user, p_pass, vSSL)
+            if direct_tag:
+                tag_update = gr.update(choices=[direct_tag], value=direct_tag, interactive=True)
+            return repo, [], 1, "", False, False, repo, tag_update
+        res, actual_page, html_info, can_prev, can_next = execute_search(
+            value, 1, p_mode, p_host, p_user, p_pass, vSSL)
+        return value, res, actual_page, html_info, can_prev, can_next, "", gr.update()
 
 
     search_btn.click(
         fn=on_initial_search,
         inputs=[kw_ui, proxy_mode_ui, proxy_host_ui, proxy_user_ui, proxy_pass_ui, ssl_ui],
-        outputs=[current_kw_state, df_results, current_page_state, page_info_ui, prev_btn, next_btn]
+        outputs=[current_kw_state, df_results, current_page_state, page_info_ui, prev_btn, next_btn,
+                 selected_repo_ui, tag_ui]
     )
 
 
